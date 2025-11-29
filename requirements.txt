@@ -1,0 +1,17 @@
+# TikTok Creator Discovery Engine - Python Dependencies
+
+# HTTP Requests
+requests==2.31.0
+
+# PostgreSQL Database Adapter
+psycopg2-binary==2.9.9
+
+# Environment Variable Management
+python-dotenv==1.0.0
+
+# Computer Vision - Face Detection Filter
+opencv-python-headless==4.8.1.78
+numpy==1.24.3
+
+# AI - Trend Classification
+openai==1.54.0
