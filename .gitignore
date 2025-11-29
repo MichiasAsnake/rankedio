@@ -54,3 +54,4 @@ frontend/.turbo
 # Temporary files
 *.tmp
 *.temp
+.vercel
