@@ -76,7 +76,7 @@ class Config:
     SORT_TYPE = 0  # Relevance
 
     # Performance Options
-    FETCH_PROFILE_IN_DISCOVERY = False  # If False, Roll Call will populate stats (saves 1 API call per creator)
+    FETCH_PROFILE_IN_DISCOVERY = True  # If True, fetches full profile during discovery for complete stats
     ENABLE_PARALLEL_PROCESSING = False  # If False, processes trends sequentially (more stable, less CDN stress)
     ENABLE_FACE_DETECTION = True  # If False, skips Layer 3 face detection (faster, but less filtering)
 
@@ -115,7 +115,7 @@ class DatabaseManager:
             self.conn.close()
             logger.info("Database connection closed")
 
-    def upsert_creator(self, cursor, creator_data: Dict, trend_keyword: str = None) -> None:
+    def upsert_creator(self, cursor, creator_data: Dict, trend_keyword: str = None, breakout_video_id: str = None) -> None:
         """
         Upsert creator data into the creators table
 
@@ -123,14 +123,16 @@ class DatabaseManager:
             cursor: Database cursor
             creator_data: Dictionary containing creator information
             trend_keyword: The trending keyword that led to discovery (e.g., "#WinterFashion")
+            breakout_video_id: The video ID that led to discovery (for "Proof" feature)
         """
-        # Add trend keyword to creator data
-        creator_data_with_trend = creator_data.copy()
-        creator_data_with_trend['discovered_via_trend'] = trend_keyword
+        # Add trend keyword and breakout video ID to creator data
+        creator_data_with_metadata = creator_data.copy()
+        creator_data_with_metadata['discovered_via_trend'] = trend_keyword
+        creator_data_with_metadata['breakout_video_id'] = breakout_video_id
 
         query = """
-            INSERT INTO creators (user_id, handle, nickname, avatar_url, signature, last_updated_at, discovered_via_trend)
-            VALUES (%(user_id)s, %(handle)s, %(nickname)s, %(avatar_url)s, %(signature)s, %(last_updated_at)s, %(discovered_via_trend)s)
+            INSERT INTO creators (user_id, handle, nickname, avatar_url, signature, last_updated_at, discovered_via_trend, breakout_video_id)
+            VALUES (%(user_id)s, %(handle)s, %(nickname)s, %(avatar_url)s, %(signature)s, %(last_updated_at)s, %(discovered_via_trend)s, %(breakout_video_id)s)
             ON CONFLICT (user_id)
             DO UPDATE SET
                 handle = EXCLUDED.handle,
@@ -138,9 +140,9 @@ class DatabaseManager:
                 avatar_url = EXCLUDED.avatar_url,
                 signature = EXCLUDED.signature,
                 last_updated_at = EXCLUDED.last_updated_at
-                -- IMPORTANT: Do NOT update discovered_via_trend - keep original discovery source
+                -- IMPORTANT: Do NOT update discovered_via_trend or breakout_video_id - keep original discovery source
         """
-        cursor.execute(query, creator_data_with_trend)
+        cursor.execute(query, creator_data_with_metadata)
 
     def get_previous_stats(self, cursor, user_id: str, target_date: date) -> Optional[Tuple[int, int, int, date]]:
         """
@@ -498,36 +500,36 @@ def filter_trends_with_ai(trend_list: List[str]) -> List[str]:
         logger.info(f"🤖 Filtering {len(trend_list)} trends with AI classifier...")
 
         # Construct the classification prompt
-        prompt = f"""You are a TikTok classifier. Your job is to filter trending keywords.
+        prompt = f"""You are a TikTok Trend Classifier. Your goal is to identify keywords that lead to "User-Generated Content" (Creators) rather than "Mass Media" (News/TV).
 
-KEEP only "Participatory Formats" - keywords where users create original content:
-- Challenges (e.g., "Ice Bucket Challenge", "Buss It Challenge")
-- Dances (e.g., "Renegade Dance", "Savage Dance")
-- Skits/Formats (e.g., "Roman Empire Trend", "Girl Math")
-- Aesthetics (e.g., "Old Money Aesthetic", "Cottagecore")
-- DIY/Tutorial formats (e.g., "Meal Prep Sunday", "Get Ready With Me")
-- Memes that inspire user-generated content
+ANALYZE the list and return a JSON array of strings to KEEP.
 
-DISCARD "Passive Topics" - keywords about consuming content:
-- News events (e.g., "Hurricane Hilary", "Election 2024")
-- Sports events (e.g., "NBA Finals", "World Cup", "Real Madrid")
-- Celebrity drama (e.g., "Taylor Swift", "Kanye", "Kim Kardashian")
-- TV shows/Movies (e.g., "Stranger Things", "Barbie Movie", "Marvel")
-- Gaming clips (e.g., "GTA 6 Gameplay", "Fortnite Clips")
-- Music releases (artist names, album names)
-- Products/Brands (e.g., "iPhone 15", "Pepsi")
+### ✅ KEEP: "Creator Formats" (Where a human talks, shows, or does something)
+1.  **Viral Trends:** Challenges, Dances, Skits, "Girl Math", "Roman Empire".
+2.  **Visual Inspiration (Inspo):** "Thanksgiving Outfit", "Nail Ideas", "Hair Tutorial", "Fall Decor", "Levis 501 Fit". (Users showing off their style).
+3.  **Routines & Hauls:** "Gym Bag Essentials", "Black Friday Haul", "What I Eat", "Morning Routine", "Unboxing".
+4.  **Niche Communities:** General terms that imply a lifestyle vlog, e.g., "Truck Drivers USA", "Corporate Life", "Run Club", "Gymtok".
+5.  **Specific Songs (Conditional):** ONLY if the keyword implies a trend or usage (e.g., "Song Name Dance", "Song Name Trend"). Pure song titles are risky but acceptable if they are currently viral sounds.
 
-Not all keywords need to include the word trend or challenge to be participatory.
-If a keyword contains the word "challenge", "trend", "aesthetic", "dance", "song", "sound" or similar, it is participatory.
-Songs are participatory, such as "Xoxo - feng" because users create content using the sound.
-Ignore keywords that involve the names of people, places, or events that are not participatory.
-Analyze this list of keywords and return ONLY the participatory keywords as a JSON array:
+### ❌ DISCARD: "Passive Consumption" (Where users watch official footage)
+1.  **News & Events:** "Election Results", "Hurricane Tracker", "Black Friday Deals" (Generic sales news), "Protest updates".
+2.  **Sports Matches:** Specific matchups like "Barcelona Vs Alaves", "Score updates", "Player Stats".
+3.  **Celebrity Gossip:** "Taylor Swift Dating", "Kanye West News". (Unless it's a parody/skit).
+4.  **Official Media:** Movie titles ("Stranger Things 5"), TV Show episodes, "Release Date", "Trailer".
+5.  **Generic E-Commerce:** "iPhone 17 Price", "Cheap Flights", "Coupon Codes". (These lead to ads, not creators).
+
+### CRITICAL LOGIC:
+* "Thanksgiving Outfit" = **KEEP** (It's a creator showing their outfit).
+* "Black Friday Deals" = **DISCARD** (It's news/ads).
+* "Girl Black Friday Haul" = **KEEP** (It's a creator showing what they bought).
+* "Barcelona Vs Alaves" = **DISCARD** (It's a match).
+* "Gym bag women" = **KEEP** (It's a routine/lifestyle).
+
+Analyze this list and return ONLY the valid keywords as a JSON array:
 
 {json.dumps(trend_list)}
 
-Respond with ONLY a valid JSON array of strings (the trends to keep). No explanation, no markdown, just the JSON array."""
-
-        # Call OpenAI API
+Respond with ONLY a valid JSON array of strings. No markdown, no explanations."""
         response = client.chat.completions.create(
             model="gpt-4o-mini",  # Fast, cheap model for classification
             messages=[
@@ -993,6 +995,11 @@ class CometDiscoveryEngine:
             statistics = aweme_info.get('statistics', {})
             video = aweme_info.get('video', {})
 
+            # Extract video ID for breakout video tracking (for "Proof" feature)
+            # Try multiple possible field paths with fallback, convert to string
+            video_id_raw = aweme_info.get('aweme_id') or item.get('item_id') or item.get('aweme_id')
+            video_id = str(video_id_raw) if video_id_raw else ''
+
             if not author or not statistics:
                 return False
 
@@ -1071,8 +1078,8 @@ class CometDiscoveryEngine:
             cursor.execute("SAVEPOINT before_insert")
 
             try:
-                # Upsert creator (with trend keyword for discovery tracking)
-                self.db_manager.upsert_creator(cursor, creator_data, trend_keyword=source_trend)
+                # Upsert creator (with trend keyword and breakout video ID for discovery tracking)
+                self.db_manager.upsert_creator(cursor, creator_data, trend_keyword=source_trend, breakout_video_id=video_id)
 
                 # Conditionally fetch full user profile based on config
                 # If disabled, Roll Call will populate complete stats (saves API calls)
