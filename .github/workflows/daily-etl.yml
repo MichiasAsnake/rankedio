@@ -41,11 +41,3 @@ jobs:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
         run: |
           python etl_pipeline.py
-
-      - name: Upload logs (if pipeline fails)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: etl-logs
-          path: '*.log'
-          retention-days: 7
