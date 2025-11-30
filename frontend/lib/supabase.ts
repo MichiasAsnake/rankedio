@@ -248,14 +248,12 @@ export async function getRisingCreators(
  * Get all unique trends from creators currently in the database
  */
 export async function getActiveTrends(): Promise<string[]> {
-  // Get unique source_trend values from today's creator stats
-  const today = new Date().toISOString().split('T')[0]
-
+  // Get trends from daily_trends table (most recent trends)
   const { data, error } = await supabase
-    .from('creator_stats')
-    .select('source_trend')
-    .eq('recorded_date', today)
-    .not('source_trend', 'is', null)
+    .from('daily_trends')
+    .select('trend_keyword')
+    .order('discovered_at', { ascending: false })
+    .limit(50) // Get recent trends
 
   if (error) {
     console.error('Error fetching active trends:', error)
@@ -263,6 +261,6 @@ export async function getActiveTrends(): Promise<string[]> {
   }
 
   // Get unique trends and sort alphabetically
-  const uniqueTrends = [...new Set(data?.map((s) => s.source_trend) || [])]
+  const uniqueTrends = [...new Set(data?.map((t) => t.trend_keyword) || [])]
   return uniqueTrends.sort()
 }
