@@ -197,7 +197,11 @@ class DatabaseManager:
                 %(video_count)s,
                 %(daily_growth_followers)s,
                 %(daily_growth_percent)s,
-                %(source_trend)s
+                -- If source_trend is NULL (roll call), use creator's discovered_via_trend
+                COALESCE(
+                    %(source_trend)s,
+                    (SELECT discovered_via_trend FROM creators WHERE user_id = %(user_id)s)
+                )
             )
             ON CONFLICT (user_id, recorded_date)
             DO UPDATE SET
@@ -206,6 +210,7 @@ class DatabaseManager:
                 video_count = EXCLUDED.video_count,
                 daily_growth_followers = EXCLUDED.daily_growth_followers,
                 daily_growth_percent = EXCLUDED.daily_growth_percent,
+                -- Update trend if new trend provided, otherwise keep existing or use discovered_via_trend
                 source_trend = COALESCE(EXCLUDED.source_trend, creator_stats.source_trend)
         """
         cursor.execute(query, stats_data)
