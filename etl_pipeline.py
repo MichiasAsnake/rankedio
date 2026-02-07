@@ -91,7 +91,13 @@ class DatabaseManager:
         try:
             # Prefer connection string (Supabase style) if available
             if Config.DATABASE_URL:
-                logger.info("Connecting to database using connection string (Supabase)")
+                # Log connection attempt (hide password)
+                url_parts = Config.DATABASE_URL.split('@')
+                if len(url_parts) > 1:
+                    safe_url = f"***@{url_parts[-1]}"
+                else:
+                    safe_url = "***"
+                logger.info(f"Connecting to database: {safe_url}")
                 self.conn = psycopg2.connect(Config.DATABASE_URL)
             else:
                 # Fallback to individual parameters
@@ -1492,8 +1498,12 @@ class CometDiscoveryEngine:
             raise
 
         finally:
-            if cursor:
-                cursor.close()
+            # Safe cleanup - cursor may not be defined if connection failed
+            try:
+                if 'cursor' in dir() and cursor:
+                    cursor.close()
+            except:
+                pass
             self.db_manager.close()
 
 
