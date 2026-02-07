@@ -36,6 +36,7 @@ jobs:
         env:
           # GitHub Secrets - Add these in your repo settings
           TIKHUB_API_KEY: ${{ secrets.TIKHUB_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           POSTGRES_URL_NON_POOLING: ${{ secrets.POSTGRES_URL_NON_POOLING }}
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}

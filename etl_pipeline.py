@@ -30,7 +30,19 @@ import httpx
 import psycopg2
 from psycopg2 import sql, extras
 from psycopg2.extensions import connection as PostgresConnection
-from openai import OpenAI
+
+# Try to import AI clients (optional)
+try:
+    from anthropic import Anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
+
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
 
 # Load environment variables from .env file
 try:
@@ -441,7 +453,7 @@ Return ONLY a JSON array of keywords to KEEP:
 
 def classify_personality_with_ai(avatar_url: str, bio: str, handle: str) -> Tuple[bool, str]:
     """
-    Use GPT-4o-mini to classify if a creator is a personality vs compilation account
+    Use Claude Haiku or GPT-4o-mini to classify if a creator is a personality vs compilation account
     
     Args:
         avatar_url: Creator's profile picture URL
@@ -454,20 +466,7 @@ def classify_personality_with_ai(avatar_url: str, bio: str, handle: str) -> Tupl
     if not Config.ENABLE_PERSONALITY_FILTER:
         return True, "Personality filter disabled"
     
-    api_key = os.getenv('OPENAI_API_KEY')
-    if not api_key:
-        return True, "No OpenAI API key"
-    
-    try:
-        # Create client without any proxy settings
-        import httpx
-        client = OpenAI(
-            api_key=api_key,
-            http_client=httpx.Client()  # Clean client without inherited proxy settings
-        )
-        
-        # Build the prompt
-        prompt = f"""Classify this TikTok account as either:
+    prompt = f"""Classify this TikTok account as either:
 A) PERSONALITY - A real person who appears on camera, creates original content, vlogs, does challenges
 B) COMPILATION - A faceless account that reposts clips, memes, edits, fan pages, news aggregators
 
@@ -479,26 +478,53 @@ Based on the username and bio patterns, classify this account.
 
 Respond with ONLY one word: PERSONALITY or COMPILATION"""
 
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You classify TikTok accounts. Respond with one word only."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0,
-            max_tokens=20
-        )
-
-        result = response.choices[0].message.content.strip().upper()
-        
-        if "PERSONALITY" in result:
-            return True, "AI classified as personality creator"
-        else:
-            return False, f"AI classified as compilation/editor account"
-
-    except Exception as e:
-        logger.warning(f"Personality classification failed: {e}")
-        return True, "Classification failed, allowing through"
+    # Try Anthropic first (Claude Haiku - fast & cheap)
+    anthropic_key = os.getenv('ANTHROPIC_API_KEY')
+    if anthropic_key and ANTHROPIC_AVAILABLE:
+        try:
+            client = Anthropic(api_key=anthropic_key)
+            response = client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=20,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            result = response.content[0].text.strip().upper()
+            
+            if "PERSONALITY" in result:
+                return True, "Claude classified as personality creator"
+            else:
+                return False, "Claude classified as compilation/editor account"
+        except Exception as e:
+            logger.warning(f"Claude classification failed: {e}")
+    
+    # Fallback to OpenAI
+    openai_key = os.getenv('OPENAI_API_KEY')
+    if openai_key and OPENAI_AVAILABLE:
+        try:
+            client = OpenAI(
+                api_key=openai_key,
+                http_client=httpx.Client()
+            )
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You classify TikTok accounts. Respond with one word only."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0,
+                max_tokens=20
+            )
+            result = response.choices[0].message.content.strip().upper()
+            
+            if "PERSONALITY" in result:
+                return True, "GPT classified as personality creator"
+            else:
+                return False, "GPT classified as compilation/editor account"
+        except Exception as e:
+            logger.warning(f"OpenAI classification failed: {e}")
+    
+    # No AI available - allow through
+    return True, "No AI API key available"
 
 
 class ContextFirstFilter:
