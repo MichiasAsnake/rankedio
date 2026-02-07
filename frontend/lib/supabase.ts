@@ -245,6 +245,79 @@ export async function getRisingCreators(
 }
 
 /**
+ * Get hidden gems - creators under 20k followers with high potential
+ */
+export async function getHiddenGems(): Promise<RisingCreator[]> {
+  const today = new Date()
+  const sevenDaysAgo = new Date(today)
+  sevenDaysAgo.setDate(today.getDate() - 7)
+
+  const todayStr = today.toISOString().split('T')[0]
+  const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0]
+
+  const { data, error } = await supabase
+    .from('creator_stats')
+    .select(
+      `
+      user_id,
+      follower_count,
+      daily_growth_percent,
+      heart_count,
+      recorded_date,
+      source_trend,
+      creators!inner (
+        handle,
+        avatar_url,
+        nickname
+      )
+    `
+    )
+    .lt('follower_count', 20000) // Under 20k
+    .gt('follower_count', 1000) // At least 1k (not brand new)
+    .gte('recorded_date', sevenDaysAgoStr)
+    .lte('recorded_date', todayStr)
+    .order('daily_growth_percent', { ascending: false })
+    .limit(50)
+
+  if (error || !data) {
+    console.error('Error fetching hidden gems:', error)
+    return []
+  }
+
+  // Group and dedupe by user_id
+  const creatorMap = new Map<string, any>()
+  
+  data.forEach((item: any) => {
+    if (!creatorMap.has(item.user_id)) {
+      const creator = Array.isArray(item.creators) ? item.creators[0] : item.creators
+      creatorMap.set(item.user_id, {
+        user_id: item.user_id,
+        handle: creator.handle,
+        avatar_url: creator.avatar_url,
+        nickname: creator.nickname,
+        stats: {
+          user_id: item.user_id,
+          follower_count: item.follower_count,
+          daily_growth_percent: item.daily_growth_percent,
+          heart_count: item.heart_count,
+          recorded_date: item.recorded_date,
+          source_trend: item.source_trend,
+        },
+        trajectory: [],
+        vibe_score: 0,
+        consistency_score: 'B' as ConsistencyRating,
+        growth_days: 0,
+        avg_30d_growth: item.daily_growth_percent,
+        is_hidden_gem: true,
+        rank: 0,
+      })
+    }
+  })
+
+  return Array.from(creatorMap.values()).slice(0, 6)
+}
+
+/**
  * Get all unique trends from creators currently in the database
  */
 export async function getActiveTrends(): Promise<string[]> {

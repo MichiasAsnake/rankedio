@@ -1,8 +1,9 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { TrendingUp, Sparkles, Gem, Award } from 'lucide-react'
+import { TrendingUp, Sparkles, Gem, Award, ExternalLink } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { RisingCreator, ConsistencyRating } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import { TrajectorySparkline } from './trajectory-sparkline'
@@ -140,10 +141,15 @@ export function CreatorRow({ creator, index }: CreatorRowProps) {
 
       {/* Identity (Avatar + Handle + Nickname + Trend Badge) */}
       <div className="flex items-center gap-4">
-        {/* Avatar */}
-        <div className="relative">
-          <div className="absolute -inset-0.5 rounded-full bg-gradient-to-br from-green-400/20 to-emerald-600/20 blur-sm" />
-          <div className="relative h-14 w-14 overflow-hidden rounded-full border-2 border-zinc-800 bg-zinc-800">
+        {/* Avatar + TikTok Link */}
+        <Link 
+          href={`https://www.tiktok.com/@${handle}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="relative group/avatar"
+        >
+          <div className="absolute -inset-0.5 rounded-full bg-gradient-to-br from-green-400/20 to-emerald-600/20 blur-sm transition-all group-hover/avatar:from-pink-500/30 group-hover/avatar:to-cyan-500/30" />
+          <div className="relative h-14 w-14 overflow-hidden rounded-full border-2 border-zinc-800 bg-zinc-800 transition-all group-hover/avatar:border-pink-500/50">
             {avatar_url ? (
               <Image
                 src={avatar_url}
@@ -158,12 +164,24 @@ export function CreatorRow({ creator, index }: CreatorRowProps) {
               </div>
             )}
           </div>
-        </div>
+          {/* TikTok hover overlay */}
+          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition-opacity group-hover/avatar:opacity-100">
+            <ExternalLink className="h-5 w-5 text-white" />
+          </div>
+        </Link>
 
         {/* Handle + Nickname + Badge */}
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-white">@{handle}</span>
+            <Link 
+              href={`https://www.tiktok.com/@${handle}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-white hover:text-pink-400 transition-colors flex items-center gap-1.5"
+            >
+              @{handle}
+              <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-50" />
+            </Link>
             {stats.source_trend && (
               <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2 py-0.5 text-xs font-medium text-purple-400 ring-1 ring-purple-500/20">
                 <Sparkles className="h-3 w-3" />

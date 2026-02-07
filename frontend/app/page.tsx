@@ -1,6 +1,8 @@
-import { getRisingCreators, getActiveTrends } from '@/lib/supabase'
+import { getRisingCreators, getActiveTrends, getHiddenGems } from '@/lib/supabase'
 import { CreatorRow } from '@/components/ui/creator-row'
 import { FilterTabs } from '@/components/ui/filter-tabs'
+import { HiddenGems } from '@/components/ui/hidden-gems'
+import { EmailSignup } from '@/components/ui/email-signup'
 import { Rocket, TrendingUp } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -13,10 +15,11 @@ export default async function Home({
 }) {
   const category = searchParams.category || 'all'
 
-  // Fetch creators and active trends in parallel
-  const [creators, trends] = await Promise.all([
+  // Fetch creators, trends, and hidden gems in parallel
+  const [creators, trends, hiddenGems] = await Promise.all([
     getRisingCreators(category === 'all' ? null : category),
     getActiveTrends(),
+    getHiddenGems(),
   ])
 
   return (
@@ -68,6 +71,16 @@ export default async function Home({
 
             {/* Filter Tabs */}
             <FilterTabs currentCategory={category} trends={trends} />
+          </div>
+
+          {/* Hidden Gems Section */}
+          {category === 'all' && hiddenGems.length > 0 && (
+            <HiddenGems creators={hiddenGems} />
+          )}
+
+          {/* Email Signup */}
+          <div className="mb-12">
+            <EmailSignup />
           </div>
 
           {/* Leaderboard */}
