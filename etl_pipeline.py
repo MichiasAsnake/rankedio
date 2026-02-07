@@ -78,7 +78,7 @@ class Config:
     # Performance Options
     FETCH_PROFILE_IN_DISCOVERY = True  # If True, fetches full profile during discovery for complete stats
     ENABLE_PARALLEL_PROCESSING = False  # If False, processes trends sequentially (more stable, less CDN stress)
-    ENABLE_FACE_DETECTION = True  # If False, skips Layer 3 face detection (faster, but less filtering)
+    ENABLE_FACE_DETECTION = False  # DISABLED: Haar Cascade too unreliable, causes false rejections
 
 class DatabaseManager:
     """Manages PostgreSQL database connections and operations"""
