@@ -346,20 +346,28 @@ def normalize_trends(trend_list: List[str]) -> List[str]:
     """
     Normalize and deduplicate trends
     
-    - Lowercase
-    - Strip whitespace
+    - Strip # prefix and whitespace
+    - Normalize to lowercase for comparison
     - Remove duplicates (case-insensitive)
+    - Collapse spaces and punctuation variants
     
     Returns deduplicated list preserving original casing of first occurrence
     """
+    import re
     seen = {}
     normalized = []
     
     for trend in trend_list:
-        key = trend.lower().strip()
-        if key not in seen:
-            seen[key] = trend.strip()
-            normalized.append(trend.strip())
+        # Clean up the trend
+        clean = trend.strip().lstrip('#')
+        
+        # Create normalized key for deduplication
+        # Remove all non-alphanumeric, collapse spaces, lowercase
+        key = re.sub(r'[^a-z0-9]', '', clean.lower())
+        
+        if key and key not in seen:
+            seen[key] = clean
+            normalized.append(clean)
     
     logger.info(f"📋 Normalized {len(trend_list)} trends → {len(normalized)} unique")
     return normalized
