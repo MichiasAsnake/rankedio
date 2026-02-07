@@ -26,6 +26,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Semaphore
 
 import requests
+import httpx
 import psycopg2
 from psycopg2 import sql, extras
 from psycopg2.extensions import connection as PostgresConnection
@@ -371,8 +372,16 @@ def filter_trends_with_ai(trend_list: List[str]) -> List[str]:
     if not trend_list:
         return []
 
+    api_key = os.getenv('OPENAI_API_KEY')
+    if not api_key:
+        logger.warning("No OPENAI_API_KEY, skipping AI filter")
+        return trend_list
+
     try:
-        client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        client = OpenAI(
+            api_key=api_key,
+            http_client=httpx.Client()  # Clean client without inherited proxy settings
+        )
         logger.info(f"🤖 Filtering {len(trend_list)} trends with AI classifier...")
 
         prompt = f"""You are a TikTok Trend Classifier. Identify keywords that lead to "User-Generated Content" (Creators) rather than "Mass Media" (News/TV).
@@ -437,8 +446,17 @@ def classify_personality_with_ai(avatar_url: str, bio: str, handle: str) -> Tupl
     if not Config.ENABLE_PERSONALITY_FILTER:
         return True, "Personality filter disabled"
     
+    api_key = os.getenv('OPENAI_API_KEY')
+    if not api_key:
+        return True, "No OpenAI API key"
+    
     try:
-        client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        # Create client without any proxy settings
+        import httpx
+        client = OpenAI(
+            api_key=api_key,
+            http_client=httpx.Client()  # Clean client without inherited proxy settings
+        )
         
         # Build the prompt
         prompt = f"""Classify this TikTok account as either:
