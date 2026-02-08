@@ -318,15 +318,15 @@ export async function getHiddenGems(): Promise<RisingCreator[]> {
 }
 
 /**
- * Get all unique trends from creators currently in the database
+ * Get only trends that have at least one creator associated
+ * This prevents showing empty trend tabs
  */
 export async function getActiveTrends(): Promise<string[]> {
-  // Get trends from daily_trends table (most recent trends)
+  // Get trends from creators table (only trends with actual creators)
   const { data, error } = await supabase
-    .from('daily_trends')
-    .select('trend_keyword')
-    .order('discovered_at', { ascending: false })
-    .limit(50) // Get recent trends
+    .from('creators')
+    .select('discovered_via_trend')
+    .not('discovered_via_trend', 'is', null)
 
   if (error) {
     console.error('Error fetching active trends:', error)
@@ -334,6 +334,11 @@ export async function getActiveTrends(): Promise<string[]> {
   }
 
   // Get unique trends and sort alphabetically
-  const uniqueTrends = [...new Set(data?.map((t) => t.trend_keyword) || [])]
+  const uniqueTrends = [...new Set(
+    data
+      ?.map((c) => c.discovered_via_trend)
+      .filter((t): t is string => t !== null && t !== undefined)
+    || []
+  )]
   return uniqueTrends.sort()
 }
