@@ -866,7 +866,31 @@ class CometDiscoveryEngine:
             normalized = normalize_trends(raw_trends)
 
             # Blacklist
-            blacklist = ['2025', '2026', 'stranger things', 'bitcoin', 'gameplay', 'pepsi', 'iphone']
+            # Expanded blacklist: news, celebrities, sports, tech, politics
+            blacklist = [
+                # Years/dates
+                '2024', '2025', '2026',
+                # Tech news
+                'iphone', 'samsung', 'android', 'battery', 'leaks', 'leaked', 'revealed',
+                'release date', 'price', 'specs', 'pro max',
+                # Celebrities (passive consumption, not creator trends)
+                'bad bunny', 'badbunny', 'billie eilish', 'lady gaga', 'taylor swift',
+                'beyonce', 'drake', 'kendrick', 'kanye', 'travis scott', 'rihanna',
+                'ariana grande', 'doja cat', 'sza', 'dua lipa', 'harry styles',
+                'justin bieber', 'selena gomez', 'the weeknd', 'post malone',
+                'chappell roan', 'sabrina carpenter', 'olivia rodrigo',
+                # Sports
+                'highlights', 'vs ', ' vs', 'match', 'game', 'score', 'barcelona',
+                'real madrid', 'nfl', 'nba', 'super bowl', 'world cup',
+                # News/awards
+                'grammy', 'grammys', 'oscar', 'oscars', 'wins', 'performs', 'announces',
+                'breaking', 'update', 'news', 'official',
+                # Products/brands
+                'bitcoin', 'crypto', 'pepsi', 'coca cola', 'mcdonalds', 'amazon',
+                'gameplay', 'playthrough', 'walkthrough', 'stranger things',
+                # Low quality
+                'compilation', 'best of', 'top 10', 'reaction',
+            ]
             filtered = [t for t in normalized if not any(b in t.lower() for b in blacklist)]
             logger.info(f"🚫 Blacklist removed {len(normalized) - len(filtered)} trends")
 
