@@ -2,8 +2,9 @@ name: Daily ETL Pipeline
 
 on:
   schedule:
-    # Run every day at 8:00 AM UTC (adjust timezone as needed)
-    - cron: '0 8 * * *'
+    # Run twice daily for faster trend discovery
+    - cron: '0 8 * * *'   # 8 AM UTC (midnight PST)
+    - cron: '0 20 * * *'  # 8 PM UTC (noon PST)
   
   # Allow manual trigger from GitHub UI
   workflow_dispatch:
