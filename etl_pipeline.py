@@ -356,12 +356,13 @@ class TikHubAPI:
 
 def normalize_trends(trend_list: List[str]) -> List[str]:
     """
-    Normalize and deduplicate trends
+    Normalize and deduplicate trends with smart grouping
     
     - Strip # prefix and whitespace
     - Normalize to lowercase for comparison
-    - Remove duplicates (case-insensitive)
-    - Collapse spaces and punctuation variants
+    - Remove duplicates and near-duplicates
+    - Group variations (e.g., "Bad Bunny" and "Badbunny" → keep first)
+    - Collapse spaces, punctuation, common suffixes
     
     Returns deduplicated list preserving original casing of first occurrence
     """
@@ -369,16 +370,33 @@ def normalize_trends(trend_list: List[str]) -> List[str]:
     seen = {}
     normalized = []
     
+    # Common suffixes to strip for comparison
+    suffixes_to_strip = [
+        'trend', 'challenge', 'dance', 'song', 'sound', 'audio',
+        'viral', 'tiktok', 'fyp', 'foryou', 'edit', 'version'
+    ]
+    
     for trend in trend_list:
         # Clean up the trend
         clean = trend.strip().lstrip('#')
         
-        # Create normalized key for deduplication
-        # Remove all non-alphanumeric, collapse spaces, lowercase
+        # Create base key: lowercase, alphanumeric only
         key = re.sub(r'[^a-z0-9]', '', clean.lower())
         
-        if key and key not in seen:
+        # Also create a "core" key with common suffixes removed
+        core_key = key
+        for suffix in suffixes_to_strip:
+            if core_key.endswith(suffix):
+                core_key = core_key[:-len(suffix)]
+        
+        # Skip if empty
+        if not key or len(key) < 3:
+            continue
+            
+        # Check both full key and core key for duplicates
+        if key not in seen and core_key not in seen:
             seen[key] = clean
+            seen[core_key] = clean  # Also mark core as seen
             normalized.append(clean)
     
     logger.info(f"📋 Normalized {len(trend_list)} trends → {len(normalized)} unique")
@@ -451,32 +469,53 @@ Return ONLY a JSON array of keywords to KEEP:
         return trend_list
 
 
-def classify_personality_with_ai(avatar_url: str, bio: str, handle: str) -> Tuple[bool, str]:
+def classify_personality_with_ai(avatar_url: str, bio: str, handle: str, nickname: str = None) -> Tuple[bool, str]:
     """
-    Use Claude Haiku or GPT-4o-mini to classify if a creator is a personality vs compilation account
+    Use Claude Haiku or GPT-4o-mini to classify if a creator is a real personality
+    
+    This is the PRIMARY gatekeeper for creator quality. Be strict!
     
     Args:
         avatar_url: Creator's profile picture URL
         bio: Creator's bio/signature
         handle: Creator's username
+        nickname: Creator's display name
         
     Returns:
-        (is_personality, reason) - True if personality creator, False if compilation/editor
+        (is_personality, reason) - True if real creator, False if should be rejected
     """
     if not Config.ENABLE_PERSONALITY_FILTER:
         return True, "Personality filter disabled"
     
-    prompt = f"""Classify this TikTok account as either:
-A) PERSONALITY - A real person who appears on camera, creates original content, vlogs, does challenges
-B) COMPILATION - A faceless account that reposts clips, memes, edits, fan pages, news aggregators
+    prompt = f"""You are a TikTok creator quality filter. Analyze this account and determine if it's a REAL CREATOR worth tracking.
 
-Account info:
+## ACCEPT (Real Creators):
+- Individual people who appear on camera
+- Personal brands, influencers, content creators
+- People doing challenges, dances, skits, vlogs
+- Beauty/fashion/fitness creators showing themselves
+- Musicians/artists promoting their own work
+- Names that look like real people (first names, nicknames)
+
+## REJECT (Not Real Creators):
+- Fan pages, stan accounts, update accounts
+- News/media accounts, celebrity gossip
+- Compilation/clip channels, "best of" accounts
+- Brand accounts, corporate pages
+- Meme repost accounts
+- Usernames with: "daily", "clips", "updates", "news", "fan", "stan", "archive", "tv", "media", "official" (unless it's the actual celebrity)
+- Generic usernames like "user123456"
+- Tech/gadget review accounts (unless personal brand)
+- Sports highlight accounts
+
+## Account to Analyze:
 - Username: @{handle}
+- Display Name: {nickname if nickname else '(none)'}
 - Bio: {bio if bio else '(no bio)'}
 
-Based on the username and bio patterns, classify this account.
+Based on ALL signals (username patterns, display name, bio content), is this a real individual creator?
 
-Respond with ONLY one word: PERSONALITY or COMPILATION"""
+Respond with ONLY: ACCEPT or REJECT"""
 
     # Try Anthropic first (Claude Haiku - fast & cheap)
     anthropic_key = os.getenv('ANTHROPIC_API_KEY')
@@ -490,10 +529,10 @@ Respond with ONLY one word: PERSONALITY or COMPILATION"""
             )
             result = response.content[0].text.strip().upper()
             
-            if "PERSONALITY" in result:
-                return True, "Claude classified as personality creator"
+            if "ACCEPT" in result:
+                return True, "Claude: Real creator"
             else:
-                return False, "Claude classified as compilation/editor account"
+                return False, f"Claude: Rejected (@{handle})"
         except Exception as e:
             logger.warning(f"Claude classification failed: {e}")
     
@@ -508,18 +547,18 @@ Respond with ONLY one word: PERSONALITY or COMPILATION"""
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "You classify TikTok accounts. Respond with one word only."},
+                    {"role": "system", "content": "You are a strict TikTok creator filter. Respond with ACCEPT or REJECT only."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0,
-                max_tokens=20
+                max_tokens=10
             )
             result = response.choices[0].message.content.strip().upper()
             
-            if "PERSONALITY" in result:
-                return True, "GPT classified as personality creator"
+            if "ACCEPT" in result:
+                return True, "GPT: Real creator"
             else:
-                return False, "GPT classified as compilation/editor account"
+                return False, f"GPT: Rejected (@{handle})"
         except Exception as e:
             logger.warning(f"OpenAI classification failed: {e}")
     
@@ -713,17 +752,21 @@ class CometDiscoveryEngine:
             if user_id in self.discovered_creators:
                 return False
 
-            # NEW: Personality filter (LLM classification)
+            # PRIMARY FILTER: AI personality classification
+            # This is the main gatekeeper - determines if account is a real creator
             if Config.ENABLE_PERSONALITY_FILTER:
                 is_personality, reason = classify_personality_with_ai(
                     creator_data['avatar_url'],
                     creator_data['signature'],
-                    creator_data['handle']
+                    creator_data['handle'],
+                    creator_data['nickname']  # Include display name for better classification
                 )
                 if not is_personality:
-                    logger.debug(f"Rejected @{creator_data['handle']}: {reason}")
+                    logger.info(f"🚫 AI Rejected: @{creator_data['handle']} - {reason}")
                     self.filter_stats['rejected_personality'] += 1
                     return False
+                else:
+                    logger.info(f"✅ AI Accepted: @{creator_data['handle']}")
 
             self.filter_stats['passed_filters'] += 1
 
@@ -866,32 +909,20 @@ class CometDiscoveryEngine:
             normalized = normalize_trends(raw_trends)
 
             # Blacklist
-            # Expanded blacklist: news, celebrities, sports, tech, politics
+            # Minimal blacklist - just obvious non-content trends
+            # AI personality filter handles creator quality, not trend filtering
             blacklist = [
-                # Years/dates
+                # Years/dates (not trends)
                 '2024', '2025', '2026',
-                # Tech news
-                'iphone', 'samsung', 'android', 'battery', 'leaks', 'leaked', 'revealed',
-                'release date', 'price', 'specs', 'pro max',
-                # Celebrities (passive consumption, not creator trends)
-                'bad bunny', 'badbunny', 'billie eilish', 'lady gaga', 'taylor swift',
-                'beyonce', 'drake', 'kendrick', 'kanye', 'travis scott', 'rihanna',
-                'ariana grande', 'doja cat', 'sza', 'dua lipa', 'harry styles',
-                'justin bieber', 'selena gomez', 'the weeknd', 'post malone',
-                'chappell roan', 'sabrina carpenter', 'olivia rodrigo',
-                # Sports
-                'highlights', 'vs ', ' vs', 'match', 'game', 'score', 'barcelona',
-                'real madrid', 'nfl', 'nba', 'super bowl', 'world cup',
-                # News/awards
-                'grammy', 'grammys', 'oscar', 'oscars', 'wins', 'performs', 'announces',
-                'breaking', 'update', 'news', 'official',
-                # Products/brands
-                'bitcoin', 'crypto', 'pepsi', 'coca cola', 'mcdonalds', 'amazon',
-                'gameplay', 'playthrough', 'walkthrough', 'stranger things',
-                # Low quality
-                'compilation', 'best of', 'top 10', 'reaction',
+                # Price/product announcements (not participatory)
+                'price', 'specs', 'release date', 'leaked', 'reveals',
+                # Sports scores (not creator content)
+                'highlights', 'vs ', ' vs', 'score',
+                # News events (not trends)
+                'breaking', 'announces', 'confirmed',
             ]
             filtered = [t for t in normalized if not any(b in t.lower() for b in blacklist)]
+            logger.info(f"🚫 Blacklist removed {len(normalized) - len(filtered)} trends")
             logger.info(f"🚫 Blacklist removed {len(normalized) - len(filtered)} trends")
 
             # AI filter
