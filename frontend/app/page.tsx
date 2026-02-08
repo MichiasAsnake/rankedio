@@ -2,6 +2,7 @@ import { getRisingCreators, getActiveTrends, getHiddenGems } from '@/lib/supabas
 import { CreatorRow } from '@/components/ui/creator-row'
 import { FilterTabs } from '@/components/ui/filter-tabs'
 import { HiddenGems } from '@/components/ui/hidden-gems'
+import { HotTopics } from '@/components/ui/hot-topics'
 import { EmailSignup } from '@/components/ui/email-signup'
 import { Rocket, TrendingUp } from 'lucide-react'
 
@@ -72,6 +73,9 @@ export default async function Home({
             {/* Filter Tabs */}
             <FilterTabs currentCategory={category} trends={trends} />
           </div>
+
+          {/* Hot Topics Section */}
+          {category === 'all' && <HotTopics trends={trends} />}
 
           {/* Hidden Gems Section */}
           {category === 'all' && hiddenGems.length > 0 && (

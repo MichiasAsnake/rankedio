@@ -317,12 +317,18 @@ export async function getHiddenGems(): Promise<RisingCreator[]> {
   return Array.from(creatorMap.values()).slice(0, 6)
 }
 
+export type TrendWithCount = {
+  keyword: string
+  creatorCount: number
+  isHot: boolean // 3+ creators = hot trend
+}
+
 /**
- * Get only trends that have at least one creator associated
- * This prevents showing empty trend tabs
+ * Get trends with creator counts for clustering insights
+ * Marks trends with 3+ creators as "hot"
  */
-export async function getActiveTrends(): Promise<string[]> {
-  // Get trends from creators table (only trends with actual creators)
+export async function getActiveTrends(): Promise<TrendWithCount[]> {
+  // Get trends from creators table with counts
   const { data, error } = await supabase
     .from('creators')
     .select('discovered_via_trend')
@@ -333,12 +339,28 @@ export async function getActiveTrends(): Promise<string[]> {
     return []
   }
 
-  // Get unique trends and sort alphabetically
-  const uniqueTrends = [...new Set(
-    data
-      ?.map((c) => c.discovered_via_trend)
-      .filter((t): t is string => t !== null && t !== undefined)
-    || []
-  )]
-  return uniqueTrends.sort()
+  // Count creators per trend
+  const trendCounts = new Map<string, number>()
+  data?.forEach((c) => {
+    const trend = c.discovered_via_trend
+    if (trend) {
+      trendCounts.set(trend, (trendCounts.get(trend) || 0) + 1)
+    }
+  })
+
+  // Convert to array with hot flag, sort by count (hot first)
+  const trends: TrendWithCount[] = Array.from(trendCounts.entries())
+    .map(([keyword, creatorCount]) => ({
+      keyword,
+      creatorCount,
+      isHot: creatorCount >= 3,
+    }))
+    .sort((a, b) => {
+      // Hot trends first, then by count, then alphabetically
+      if (a.isHot !== b.isHot) return a.isHot ? -1 : 1
+      if (a.creatorCount !== b.creatorCount) return b.creatorCount - a.creatorCount
+      return a.keyword.localeCompare(b.keyword)
+    })
+
+  return trends
 }
