@@ -909,35 +909,25 @@ class CometDiscoveryEngine:
                 logger.error("❌ Failed to fetch trends")
                 return
 
-            # Normalize trends (dedupe)
+            # Normalize trends (dedupe variations like "Bad Bunny" vs "badbunny")
             normalized = normalize_trends(raw_trends)
 
-            # Blacklist
-            # Minimal blacklist - just obvious non-content trends
-            # AI personality filter handles creator quality, not trend filtering
+            # MINIMAL blacklist - only things that literally cannot have creators
+            # Trust the AI personality filter to handle creator quality
             blacklist = [
-                # Years/dates (not trends)
-                '2024', '2025', '2026',
-                # Price/product announcements (not participatory)
-                'price', 'specs', 'release date', 'leaked', 'reveals',
-                # Sports scores (not creator content)
-                'highlights', 'vs ', ' vs', 'score',
-                # News events (not trends)
-                'breaking', 'announces', 'confirmed',
+                '2024', '2025', '2026', '2027',  # Years aren't trends
+                'price drop', 'on sale',          # Shopping, not content
             ]
             filtered = [t for t in normalized if not any(b in t.lower() for b in blacklist)]
-            logger.info(f"🚫 Blacklist removed {len(normalized) - len(filtered)} trends")
-            logger.info(f"🚫 Blacklist removed {len(normalized) - len(filtered)} trends")
+            logger.info(f"🚫 Minimal blacklist removed {len(normalized) - len(filtered)} trends")
 
-            # AI filter
-            participatory = filter_trends_with_ai(filtered)
-            if not participatory:
-                logger.error("❌ AI filter rejected all trends")
-                return
-
-            # Top 10
-            trends = participatory[:10]
-            logger.info(f"✅ Final: {len(trends)} trends → {', '.join(trends)}")
+            # NO AI trend filter - let all trends through
+            # The personality filter will catch bad creators, not trend filter
+            # This gives us more surface area to find rising creators
+            
+            # Process top 20 trends (more coverage)
+            trends = filtered[:20]
+            logger.info(f"✅ Processing {len(trends)} trends: {', '.join(trends[:5])}...")
 
             # Store trends
             self.db_manager.insert_daily_trends_batch(cursor, [(t, i+1) for i, t in enumerate(trends)])
