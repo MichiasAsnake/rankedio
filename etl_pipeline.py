@@ -629,7 +629,8 @@ class CometDiscoveryEngine:
         self.db_manager = DatabaseManager()
         self.api = TikHubAPI(Config.TIKHUB_API_KEY)
         self.context_filter = ContextFirstFilter()
-        self.discovered_creators = set()
+        self.discovered_creators = set()  # Creators we've added to DB
+        self.evaluated_creators = set()   # All creators we've evaluated (including rejected)
 
         self.filter_stats = {
             'total_processed': 0,
@@ -748,9 +749,12 @@ class CometDiscoveryEngine:
                 self.filter_stats['rejected_layer1'] += 1
                 return False
 
-            # Skip if already processed
-            if user_id in self.discovered_creators:
+            # Skip if already evaluated (whether accepted or rejected)
+            if user_id in self.evaluated_creators:
                 return False
+            
+            # Mark as evaluated before AI call (prevents duplicate API calls)
+            self.evaluated_creators.add(user_id)
 
             # PRIMARY FILTER: AI personality classification
             # This is the main gatekeeper - determines if account is a real creator
@@ -814,7 +818,7 @@ class CometDiscoveryEngine:
         if not roster:
             return 0
 
-        # Count how many we'll skip
+        # Count how many we'll skip (already processed in discovery)
         skip_count = sum(1 for uid, _ in roster if uid in self.discovered_creators)
         logger.info(f"📋 Roster: {len(roster)} creators ({skip_count} already updated today)")
 
@@ -860,7 +864,7 @@ class CometDiscoveryEngine:
         discovered = 0
         api_cursor = 0
 
-        for page in range(5):  # Max 5 pages
+        for page in range(10):  # Max 10 pages (200 videos per trend)
             response = self.api.search_videos(trend_keyword, cursor=api_cursor)
             if not response:
                 break
