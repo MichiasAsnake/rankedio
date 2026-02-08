@@ -319,16 +319,65 @@ export async function getHiddenGems(): Promise<RisingCreator[]> {
 
 export type TrendWithCount = {
   keyword: string
+  displayName: string // Shortened display name
   creatorCount: number
   isHot: boolean // 3+ creators = hot trend
+  childTrends?: string[] // Original trends that were grouped
 }
 
 /**
- * Get trends with creator counts for clustering insights
- * Marks trends with 3+ creators as "hot"
+ * Extract core topic from a trend name for grouping
+ * "Bad Bunny Song DtMF" → "bad bunny"
+ * "Lady Gaga Performs 'Abracadabra' At Grammys" → "lady gaga"
+ */
+function extractCoreTopic(trend: string): string {
+  const lower = trend.toLowerCase()
+  
+  // Known entities to extract
+  const knownEntities = [
+    'bad bunny', 'lady gaga', 'billie eilish', 'taylor swift', 'ariana grande',
+    'chappell roan', 'justin bieber', 'chief keef', 'bts', 'grammys',
+    'aunty shakira', 'valentines day', 'micro bikini', 'liberian girl',
+  ]
+  
+  for (const entity of knownEntities) {
+    if (lower.includes(entity)) {
+      return entity
+    }
+  }
+  
+  // Otherwise, take first 2-3 significant words
+  const words = lower
+    .replace(/['']/g, '')
+    .split(/\s+/)
+    .filter(w => !['the', 'a', 'an', 'at', 'in', 'on', 'of', 'vs', 'and', 'to', 'for'].includes(w))
+  
+  return words.slice(0, 2).join(' ')
+}
+
+/**
+ * Create a nice display name for a grouped trend
+ */
+function createDisplayName(coreTopic: string, trends: string[]): string {
+  // Capitalize first letter of each word
+  const capitalized = coreTopic
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+  
+  // Special formatting
+  if (coreTopic === 'grammys') return 'Grammys 2026'
+  if (coreTopic === 'valentines day') return "Valentine's Day"
+  if (coreTopic === 'micro bikini') return 'Micro Bikinis'
+  
+  return capitalized
+}
+
+/**
+ * Get trends with creator counts, grouped by core topic
+ * Merges "Bad Bunny" + "Bad Bunny Song DtMF" into one trend
  */
 export async function getActiveTrends(): Promise<TrendWithCount[]> {
-  // Get trends from creators table with counts
   const { data, error } = await supabase
     .from('creators')
     .select('discovered_via_trend')
@@ -339,27 +388,39 @@ export async function getActiveTrends(): Promise<TrendWithCount[]> {
     return []
   }
 
-  // Count creators per trend
-  const trendCounts = new Map<string, number>()
+  // Count creators per original trend
+  const rawTrendCounts = new Map<string, number>()
   data?.forEach((c) => {
     const trend = c.discovered_via_trend
     if (trend) {
-      trendCounts.set(trend, (trendCounts.get(trend) || 0) + 1)
+      rawTrendCounts.set(trend, (rawTrendCounts.get(trend) || 0) + 1)
     }
   })
 
-  // Convert to array with hot flag, sort by count (hot first)
-  const trends: TrendWithCount[] = Array.from(trendCounts.entries())
-    .map(([keyword, creatorCount]) => ({
-      keyword,
-      creatorCount,
-      isHot: creatorCount >= 3,
+  // Group trends by core topic
+  const groupedTrends = new Map<string, { count: number; originals: string[] }>()
+  
+  rawTrendCounts.forEach((count, trend) => {
+    const core = extractCoreTopic(trend)
+    const existing = groupedTrends.get(core) || { count: 0, originals: [] }
+    existing.count += count
+    existing.originals.push(trend)
+    groupedTrends.set(core, existing)
+  })
+
+  // Convert to array with hot flag
+  const trends: TrendWithCount[] = Array.from(groupedTrends.entries())
+    .map(([coreTopic, { count, originals }]) => ({
+      keyword: originals[0], // Use first original for filtering
+      displayName: createDisplayName(coreTopic, originals),
+      creatorCount: count,
+      isHot: count >= 3,
+      childTrends: originals.length > 1 ? originals : undefined,
     }))
     .sort((a, b) => {
-      // Hot trends first, then by count, then alphabetically
       if (a.isHot !== b.isHot) return a.isHot ? -1 : 1
       if (a.creatorCount !== b.creatorCount) return b.creatorCount - a.creatorCount
-      return a.keyword.localeCompare(b.keyword)
+      return a.displayName.localeCompare(b.displayName)
     })
 
   return trends

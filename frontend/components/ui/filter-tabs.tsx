@@ -14,12 +14,13 @@ interface FilterTabsProps {
 export function FilterTabs({ currentCategory, trends }: FilterTabsProps) {
   // Build categories array with "All" first, then dynamic trends
   const categories = [
-    { label: 'All', value: 'all', count: 0, isHot: false },
+    { label: 'All', value: 'all', count: 0, isHot: false, childTrends: undefined as string[] | undefined },
     ...trends.map((trend) => ({
-      label: trend.keyword,
-      value: trend.keyword,
+      label: trend.displayName,
+      value: trend.keyword, // Use original keyword for URL filtering
       count: trend.creatorCount,
       isHot: trend.isHot,
+      childTrends: trend.childTrends,
     })),
   ]
 

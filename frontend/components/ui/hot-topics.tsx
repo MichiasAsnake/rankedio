@@ -43,7 +43,7 @@ export function HotTopics({ trends }: HotTopicsProps) {
                   <div className="flex items-center gap-2 mb-1">
                     <Flame className="h-4 w-4 text-orange-500" />
                     <span className="text-sm font-semibold text-white group-hover:text-orange-400 transition-colors">
-                      {trend.keyword}
+                      {trend.displayName}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-zinc-500">
@@ -51,10 +51,11 @@ export function HotTopics({ trends }: HotTopicsProps) {
                       <Users className="h-3 w-3" />
                       {trend.creatorCount} creators
                     </span>
-                    <span className="flex items-center gap-1">
-                      <TrendingUp className="h-3 w-3 text-green-500" />
-                      Trending
-                    </span>
+                    {trend.childTrends && trend.childTrends.length > 1 && (
+                      <span className="text-zinc-600">
+                        {trend.childTrends.length} variations
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/10 text-orange-400 font-bold text-sm">
