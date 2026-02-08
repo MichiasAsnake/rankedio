@@ -106,8 +106,9 @@ export function CreatorRow({ creator, index }: CreatorRowProps) {
       animate="visible"
       whileHover={{ scale: 1.01, transition: { duration: 0.2 } }}
       className={cn(
-        'group relative grid grid-cols-[80px_1fr_auto_auto_auto_auto_auto] items-center gap-6',
-        'rounded-2xl border p-6',
+        'group relative',
+        'flex flex-col gap-4 lg:grid lg:grid-cols-[80px_1fr_auto_auto_auto_auto_auto] lg:items-center lg:gap-6',
+        'rounded-2xl border p-4 lg:p-6',
         'backdrop-blur-sm transition-all duration-300',
         is_hidden_gem
           ? 'border-indigo-500/30 bg-gradient-to-r from-indigo-900/20 via-zinc-900/50 to-purple-900/20 hover:border-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/10'
@@ -125,8 +126,87 @@ export function CreatorRow({ creator, index }: CreatorRowProps) {
           </div>
         </div>
       )}
-      {/* Rank */}
-      <div className="flex items-center justify-center">
+
+      {/* MOBILE: Top row with rank, avatar, handle, growth */}
+      <div className="flex items-center justify-between lg:hidden">
+        <div className="flex items-center gap-3">
+          {/* Mobile Rank */}
+          <span
+            className={cn(
+              'font-mono text-2xl font-bold tabular-nums',
+              rank <= 3
+                ? 'bg-gradient-to-br from-yellow-400 to-amber-600 bg-clip-text text-transparent'
+                : 'text-zinc-500'
+            )}
+          >
+            #{rank}
+          </span>
+          {/* Mobile Avatar */}
+          <Link 
+            href={`https://www.tiktok.com/@${handle}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="relative"
+          >
+            <div className="h-12 w-12 overflow-hidden rounded-full border-2 border-zinc-800 bg-zinc-800">
+              {avatar_url ? (
+                <Image
+                  src={avatar_url}
+                  alt={handle}
+                  fill
+                  className="object-cover"
+                  sizes="48px"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-700 to-zinc-800 text-lg font-bold text-zinc-400">
+                  {handle[0]?.toUpperCase() || '?'}
+                </div>
+              )}
+            </div>
+          </Link>
+          {/* Mobile Handle */}
+          <div className="flex flex-col">
+            <Link 
+              href={`https://www.tiktok.com/@${handle}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-white text-sm"
+            >
+              @{handle}
+            </Link>
+            <span className="text-xs text-zinc-500">{formatCount(stats.follower_count)} followers</span>
+          </div>
+        </div>
+        {/* Mobile Growth Badge */}
+        <div className="flex items-center gap-1.5 rounded-lg bg-green-500/10 px-3 py-1.5 ring-1 ring-green-500/20">
+          <TrendingUp className="h-4 w-4 text-green-400" />
+          <span className="font-mono text-sm font-bold tabular-nums text-green-400">
+            +{isNewArrival ? stats.daily_growth_percent.toFixed(1) : avg_30d_growth.toFixed(1)}%
+          </span>
+        </div>
+      </div>
+
+      {/* MOBILE: Bottom row with secondary stats */}
+      <div className="flex items-center justify-between gap-4 lg:hidden">
+        <div className="flex items-center gap-1">
+          <Sparkles className="h-3 w-3 text-yellow-400" />
+          <span className="text-xs text-zinc-400">Vibe: </span>
+          <span className="font-mono text-xs font-semibold text-yellow-400">{vibe_score.toFixed(1)}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Award className={cn('h-3 w-3', consistencyBadge.color)} />
+          <span className="text-xs text-zinc-400">Consistency: </span>
+          <span className={cn('text-xs font-semibold', consistencyBadge.color)}>{consistency_score}</span>
+        </div>
+        {isMature && (
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-zinc-400">{growth_days}d growth</span>
+          </div>
+        )}
+      </div>
+
+      {/* DESKTOP: Rank */}
+      <div className="hidden lg:flex items-center justify-center">
         <span
           className={cn(
             'font-mono text-4xl font-bold tabular-nums',
@@ -139,8 +219,8 @@ export function CreatorRow({ creator, index }: CreatorRowProps) {
         </span>
       </div>
 
-      {/* Identity (Avatar + Handle + Nickname + Trend Badge) */}
-      <div className="flex items-center gap-4">
+      {/* DESKTOP: Identity (Avatar + Handle + Nickname + Trend Badge) */}
+      <div className="hidden lg:flex items-center gap-4">
         {/* Avatar + TikTok Link */}
         <Link 
           href={`https://www.tiktok.com/@${handle}`}
@@ -195,8 +275,8 @@ export function CreatorRow({ creator, index }: CreatorRowProps) {
         </div>
       </div>
 
-      {/* Weight Class (Followers) */}
-      <div className="flex flex-col items-end gap-1">
+      {/* DESKTOP: Weight Class (Followers) */}
+      <div className="hidden lg:flex flex-col items-end gap-1">
         <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
           Followers
         </span>
@@ -205,8 +285,8 @@ export function CreatorRow({ creator, index }: CreatorRowProps) {
         </span>
       </div>
 
-      {/* Vibe Check (Engagement Score) */}
-      <div className="flex flex-col items-end gap-2">
+      {/* DESKTOP: Vibe Check (Engagement Score) */}
+      <div className="hidden lg:flex flex-col items-end gap-2">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
             Vibe Check
@@ -229,8 +309,8 @@ export function CreatorRow({ creator, index }: CreatorRowProps) {
         </div>
       </div>
 
-      {/* Trajectory Section - Conditional: New Arrival vs Rising Star */}
-      <div className="flex flex-col items-center gap-2">
+      {/* DESKTOP: Trajectory Section - Conditional: New Arrival vs Rising Star */}
+      <div className="hidden lg:flex flex-col items-center gap-2">
         {isNewArrival ? (
           // NEW ARRIVAL: Show "Just Detected" badge instead of sparkline
           <>
@@ -257,8 +337,8 @@ export function CreatorRow({ creator, index }: CreatorRowProps) {
         )}
       </div>
 
-      {/* Consistency Score - Conditional */}
-      <div className="flex flex-col items-end gap-2">
+      {/* DESKTOP: Consistency Score - Conditional */}
+      <div className="hidden lg:flex flex-col items-end gap-2">
         {isNewArrival ? (
           // NEW ARRIVAL: Show "N/A" for consistency
           <>
@@ -295,8 +375,8 @@ export function CreatorRow({ creator, index }: CreatorRowProps) {
         )}
       </div>
 
-      {/* Growth Metric - Conditional: 24H for New, 30D Avg for Mature */}
-      <div className="flex flex-col items-end gap-1">
+      {/* DESKTOP: Growth Metric - Conditional: 24H for New, 30D Avg for Mature */}
+      <div className="hidden lg:flex flex-col items-end gap-1">
         {isNewArrival ? (
           // NEW ARRIVAL: Show 24H Velocity
           <>

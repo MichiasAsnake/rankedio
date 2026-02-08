@@ -39,13 +39,12 @@ export default async function Home({
       <div className="relative">
         {/* Header */}
         <header className="border-b border-white/5 bg-zinc-950/50 backdrop-blur-xl">
-          <div className="mx-auto max-w-7xl px-6 py-6">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 py-4 sm:py-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-              
-                <span className="text-xl font-bold text-white">Comet ☄️</span>
+                <span className="text-lg sm:text-xl font-bold text-white">Comet ☄️</span>
               </div>
-              <button className="rounded-xl bg-white/5 px-4 py-2 text-sm font-medium text-white ring-1 ring-white/10 transition-all hover:bg-white/10">
+              <button className="rounded-xl bg-white/5 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white ring-1 ring-white/10 transition-all hover:bg-white/10">
                 Connect Wallet
               </button>
             </div>
@@ -53,10 +52,10 @@ export default async function Home({
         </header>
 
         {/* Hero Section */}
-        <div className="mx-auto max-w-7xl px-6 py-16">
-          <div className="mb-12 space-y-6">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-8 sm:py-16">
+          <div className="mb-8 sm:mb-12 space-y-4 sm:space-y-6">
             {/* Headline */}
-            <h1 className="text-6xl font-bold leading-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
               <span className="text-white">Scout creator</span>
               <br />
               <span className="bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400 bg-clip-text text-transparent">
@@ -65,7 +64,7 @@ export default async function Home({
             </h1>
 
             {/* Subhead */}
-            <p className="max-w-2xl text-xl text-zinc-400">
+            <p className="max-w-2xl text-base sm:text-xl text-zinc-400">
               Track long-term growth patterns, not viral spikes. Discover
               consistent creators building sustainable careers.
             </p>
@@ -89,8 +88,8 @@ export default async function Home({
 
           {/* Leaderboard */}
           <div className="space-y-4">
-            {/* Column Headers */}
-            <div className="grid grid-cols-[80px_1fr_auto_auto_auto_auto_auto] gap-6 px-6 pb-4">
+            {/* Column Headers - Hidden on mobile */}
+            <div className="hidden lg:grid grid-cols-[80px_1fr_auto_auto_auto_auto_auto] gap-6 px-6 pb-4">
               <div className="text-xs font-semibold uppercase tracking-wider text-zinc-600">
                 Rank
               </div>
@@ -143,7 +142,7 @@ export default async function Home({
 
           {/* Stats Footer */}
           {creators.length > 0 && (
-            <div className="mt-8 grid grid-cols-3 gap-4">
+            <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="rounded-xl border border-white/5 bg-zinc-900/50 p-6 backdrop-blur-sm">
                 <div className="text-sm text-zinc-500">Total Comets</div>
                 <div className="mt-2 font-mono text-3xl font-bold text-white">
