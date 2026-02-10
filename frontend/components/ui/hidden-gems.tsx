@@ -2,9 +2,9 @@
 
 import { motion } from 'framer-motion'
 import { Gem, TrendingUp, ExternalLink } from 'lucide-react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { RisingCreator } from '@/lib/supabase'
+import { CreatorAvatar } from './creator-avatar'
 
 interface HiddenGemsProps {
   creators: RisingCreator[]
@@ -53,21 +53,12 @@ export function HiddenGems({ creators }: HiddenGemsProps) {
                 rel="noopener noreferrer"
                 className="relative group/avatar shrink-0"
               >
-                <div className="h-12 w-12 overflow-hidden rounded-full border-2 border-indigo-500/30 bg-zinc-800 transition-all group-hover/avatar:border-pink-500/50">
-                  {creator.avatar_url ? (
-                    <Image
-                      src={creator.avatar_url}
-                      alt={creator.handle}
-                      width={48}
-                      height={48}
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-700 to-purple-800 text-lg font-bold text-white">
-                      {creator.handle[0]?.toUpperCase() || '?'}
-                    </div>
-                  )}
-                </div>
+                <CreatorAvatar 
+                  src={creator.avatar_url} 
+                  handle={creator.handle} 
+                  size={48}
+                  className="border-indigo-500/30 transition-all group-hover/avatar:border-pink-500/50"
+                />
                 {/* Hover overlay */}
                 <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition-opacity group-hover/avatar:opacity-100">
                   <ExternalLink className="h-4 w-4 text-white" />

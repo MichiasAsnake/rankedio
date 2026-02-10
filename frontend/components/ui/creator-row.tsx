@@ -2,11 +2,11 @@
 
 import { motion } from 'framer-motion'
 import { TrendingUp, Sparkles, Gem, Award, ExternalLink } from 'lucide-react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { RisingCreator, ConsistencyRating } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import { TrajectorySparkline } from './trajectory-sparkline'
+import { CreatorAvatar } from './creator-avatar'
 
 interface CreatorRowProps {
   creator: RisingCreator
@@ -148,21 +148,7 @@ export function CreatorRow({ creator, index }: CreatorRowProps) {
             rel="noopener noreferrer"
             className="relative"
           >
-            <div className="h-12 w-12 overflow-hidden rounded-full border-2 border-zinc-800 bg-zinc-800">
-              {avatar_url ? (
-                <Image
-                  src={avatar_url}
-                  alt={handle}
-                  fill
-                  className="object-cover"
-                  sizes="48px"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-700 to-zinc-800 text-lg font-bold text-zinc-400">
-                  {handle[0]?.toUpperCase() || '?'}
-                </div>
-              )}
-            </div>
+            <CreatorAvatar src={avatar_url} handle={handle} size={48} />
           </Link>
           {/* Mobile Handle */}
           <div className="flex flex-col">
@@ -229,21 +215,12 @@ export function CreatorRow({ creator, index }: CreatorRowProps) {
           className="relative group/avatar"
         >
           <div className="absolute -inset-0.5 rounded-full bg-gradient-to-br from-green-400/20 to-emerald-600/20 blur-sm transition-all group-hover/avatar:from-pink-500/30 group-hover/avatar:to-cyan-500/30" />
-          <div className="relative h-14 w-14 overflow-hidden rounded-full border-2 border-zinc-800 bg-zinc-800 transition-all group-hover/avatar:border-pink-500/50">
-            {avatar_url ? (
-              <Image
-                src={avatar_url}
-                alt={handle}
-                fill
-                className="object-cover"
-                sizes="56px"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-700 to-zinc-800 text-xl font-bold text-zinc-400">
-                {handle[0]?.toUpperCase() || '?'}
-              </div>
-            )}
-          </div>
+          <CreatorAvatar 
+            src={avatar_url} 
+            handle={handle} 
+            size={56} 
+            className="relative transition-all group-hover/avatar:border-pink-500/50"
+          />
           {/* TikTok hover overlay */}
           <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition-opacity group-hover/avatar:opacity-100">
             <ExternalLink className="h-5 w-5 text-white" />
