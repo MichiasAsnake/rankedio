@@ -143,11 +143,12 @@ export async function getRisingCreators(
 
     const consistencyScore = calculateConsistencyScore(growthDays, totalDays)
 
-    // Vibe Score = (hearts / followers) normalized to 0-10 scale
+    // Vibe Score = log scale of hearts/followers ratio (spreads out high values)
+    // Old formula capped everyone at 10; log scale gives meaningful differentiation
     const vibeScore =
-      latestStats.follower_count > 0
+      latestStats.follower_count > 0 && latestStats.heart_count > 0
         ? Math.min(
-            (latestStats.heart_count / latestStats.follower_count) * 0.5,
+            Math.log10(latestStats.heart_count / latestStats.follower_count + 1) * 4,
             10
           )
         : 0

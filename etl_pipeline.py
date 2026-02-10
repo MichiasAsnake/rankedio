@@ -296,23 +296,32 @@ class TikHubAPI:
             logger.error(f"Failed to parse JSON response for {hashtag}: {e}")
             return None
 
-    def fetch_user_profile(self, handle: str) -> Optional[Dict]:
-        """Fetch user profile by handle/unique_id"""
+    def fetch_user_profile(self, handle: str, retries: int = 3) -> Optional[Dict]:
+        """Fetch user profile by handle/unique_id with retry logic"""
         profile_url = 'https://api.tikhub.io/api/v1/tiktok/app/v3/handler_user_profile'
         params = {'unique_id': handle}
 
-        try:
-            response = self.session.get(profile_url, params=params, timeout=30)
-            response.raise_for_status()
-            data = response.json()
-            if isinstance(data, dict) and data.get('code') != 200:
+        for attempt in range(retries):
+            try:
+                response = self.session.get(profile_url, params=params, timeout=30)
+                response.raise_for_status()
+                data = response.json()
+                if isinstance(data, dict) and data.get('code') != 200:
+                    # API returned error code, retry
+                    if attempt < retries - 1:
+                        time.sleep(0.5 * (attempt + 1))  # Exponential backoff
+                        continue
+                    return None
+                return data
+            except requests.exceptions.RequestException as e:
+                if attempt < retries - 1:
+                    time.sleep(0.5 * (attempt + 1))
+                    continue
+                logger.warning(f"Failed to fetch profile for @{handle} after {retries} attempts: {e}")
                 return None
-            return data
-        except requests.exceptions.RequestException as e:
-            logger.warning(f"Failed to fetch profile for @{handle}: {e}")
-            return None
-        except ValueError:
-            return None
+            except ValueError:
+                return None
+        return None
 
     def get_trending_keywords(self, limit: int = 10, region: str = 'US') -> List[str]:
         """Fetch trending search words from TikTok"""
