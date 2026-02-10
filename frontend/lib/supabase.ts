@@ -332,16 +332,21 @@ export type TrendWithCount = {
  */
 function extractCoreTopic(trend: string): string {
   const lower = trend.toLowerCase()
+  // Also create a no-space version for matching "Badbunny" → "bad bunny"
+  const noSpaces = lower.replace(/\s+/g, '')
   
   // Known entities to extract
   const knownEntities = [
     'bad bunny', 'lady gaga', 'billie eilish', 'taylor swift', 'ariana grande',
     'chappell roan', 'justin bieber', 'chief keef', 'bts', 'grammys',
     'aunty shakira', 'valentines day', 'micro bikini', 'liberian girl',
+    'kendrick lamar', 'karol g', 'shakira', 'super bowl', 'iphone',
   ]
   
   for (const entity of knownEntities) {
-    if (lower.includes(entity)) {
+    const entityNoSpaces = entity.replace(/\s+/g, '')
+    // Match with spaces OR without spaces
+    if (lower.includes(entity) || noSpaces.includes(entityNoSpaces)) {
       return entity
     }
   }
