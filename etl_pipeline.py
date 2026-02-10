@@ -44,6 +44,14 @@ try:
 except ImportError:
     OPENAI_AVAILABLE = False
 
+# Avatar caching
+try:
+    from avatar_cache import cache_avatar
+    AVATAR_CACHE_AVAILABLE = True
+except ImportError:
+    AVATAR_CACHE_AVAILABLE = False
+    cache_avatar = lambda user_id, url: url  # No-op fallback
+
 # Load environment variables from .env file
 try:
     from dotenv import load_dotenv
@@ -741,6 +749,10 @@ class CometDiscoveryEngine:
             user_id = creator_data['user_id']
             if not user_id:
                 return False
+            
+            # Cache avatar to Supabase Storage for permanent access
+            if AVATAR_CACHE_AVAILABLE and creator_data.get('avatar_url'):
+                creator_data['avatar_url'] = cache_avatar(user_id, creator_data['avatar_url'])
 
             # Username blacklist
             handle = creator_data['handle'].lower()

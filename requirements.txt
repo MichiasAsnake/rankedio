@@ -17,3 +17,6 @@ numpy==1.24.3
 anthropic>=0.18.0
 openai==1.54.0
 httpx>=0.25.0
+
+# Supabase - Avatar Storage Cache
+supabase>=2.0.0
