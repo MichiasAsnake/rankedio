@@ -335,29 +335,46 @@ function extractCoreTopic(trend: string): string {
   // Also create a no-space version for matching "Badbunny" → "bad bunny"
   const noSpaces = lower.replace(/\s+/g, '')
   
-  // Known entities to extract
+  // Step 1: Strip version numbers, years, and common modifiers
+  const stripped = lower
+    .replace(/\d+/g, '')  // Remove all numbers (18, 17, 2026, etc.)
+    .replace(/\b(pro|max|ultra|plus|mini|new|design|changes|meme|trend|challenge|speaking|performs|performance|at|the)\b/gi, '')
+    .replace(/\s+/g, ' ')  // Collapse multiple spaces
+    .trim()
+  
+  const strippedNoSpaces = stripped.replace(/\s+/g, '')
+  
+  // Known entities to extract (canonical names)
   const knownEntities = [
     'bad bunny', 'lady gaga', 'billie eilish', 'taylor swift', 'ariana grande',
     'chappell roan', 'justin bieber', 'chief keef', 'bts', 'grammys',
     'aunty shakira', 'valentines day', 'micro bikini', 'liberian girl',
     'kendrick lamar', 'karol g', 'shakira', 'super bowl', 'iphone',
+    'samsung', 'galaxy', 'pixel', 'tesla', 'nvidia',
   ]
   
   for (const entity of knownEntities) {
     const entityNoSpaces = entity.replace(/\s+/g, '')
-    // Match with spaces OR without spaces
-    if (lower.includes(entity) || noSpaces.includes(entityNoSpaces)) {
+    // Match original, stripped, or no-space versions
+    if (
+      lower.includes(entity) || 
+      noSpaces.includes(entityNoSpaces) ||
+      stripped.includes(entity) ||
+      strippedNoSpaces.includes(entityNoSpaces)
+    ) {
       return entity
     }
   }
   
-  // Otherwise, take first 2-3 significant words
-  const words = lower
+  // Step 2: For unknown trends, extract first 1-2 significant words from stripped version
+  const words = stripped
     .replace(/['']/g, '')
     .split(/\s+/)
-    .filter(w => !['the', 'a', 'an', 'at', 'in', 'on', 'of', 'vs', 'and', 'to', 'for'].includes(w))
+    .filter(w => w.length > 2 && !['the', 'a', 'an', 'at', 'in', 'on', 'of', 'vs', 'and', 'to', 'for'].includes(w))
   
-  return words.slice(0, 2).join(' ')
+  // If only 1 word left after stripping, use it
+  // Otherwise use first 2 words
+  return words.slice(0, words.length === 1 ? 1 : 2).join(' ')
 }
 
 /**
