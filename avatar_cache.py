@@ -15,9 +15,9 @@ from supabase import create_client, Client
 logger = logging.getLogger(__name__)
 
 # Supabase config
-SUPABASE_URL = os.getenv('NEXT_PUBLIC_SUPABASE_URL', 'https://bqfvgwtxrvehgtqijjfl.supabase.co')
+SUPABASE_URL = os.getenv('NEXT_PUBLIC_SUPABASE_URL', 'https://aoirpacvupeglqpdanmo.supabase.co')
 SUPABASE_SERVICE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY', '')
-SUPABASE_ANON_KEY = os.getenv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxZnZnd3R4cnZlaGd0cWlqamZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzUxNjM0MTQsImV4cCI6MjA1MDczOTQxNH0.HNnuEQ7gUTNB7QS1EoFjVTDCMpMzMHMhRnNjpxhNPMs')
+SUPABASE_ANON_KEY = os.getenv('NEXT_PUBLIC_SUPABASE_ANON_KEY', '')
 
 BUCKET_NAME = 'avatars'
 
