@@ -177,7 +177,7 @@ export function CreatorRow({ creator, index }: CreatorRowProps) {
         <div className="flex items-center gap-1">
           <Sparkles className="h-3 w-3 text-yellow-400" />
           <span className="text-xs text-zinc-400">Vibe: </span>
-          <span className="font-mono text-xs font-semibold text-yellow-400">{vibe_score.toFixed(1)}</span>
+          <span className="font-mono text-xs font-semibold text-yellow-400">{vibe_score > 0 ? vibe_score.toFixed(1) : '—'}</span>
         </div>
         <div className="flex items-center gap-1">
           <Award className={cn('h-3 w-3', consistencyBadge.color)} />
@@ -269,18 +269,18 @@ export function CreatorRow({ creator, index }: CreatorRowProps) {
             Vibe Check
           </span>
           <div className="flex items-center gap-1">
-            <Sparkles className="h-3 w-3 text-yellow-400" />
-            <span className="font-mono text-sm font-semibold tabular-nums text-yellow-400">
-              {vibe_score.toFixed(1)}
+            <Sparkles className={`h-3 w-3 ${vibe_score > 0 ? 'text-yellow-400' : 'text-zinc-600'}`} />
+            <span className={`font-mono text-sm font-semibold tabular-nums ${vibe_score > 0 ? 'text-yellow-400' : 'text-zinc-600'}`}>
+              {vibe_score > 0 ? vibe_score.toFixed(1) : '—'}
             </span>
           </div>
         </div>
         {/* Progress bar */}
         <div className="h-1.5 w-24 overflow-hidden rounded-full bg-zinc-800">
           <motion.div
-            className="h-full bg-gradient-to-r from-yellow-400 to-amber-500"
+            className={`h-full ${vibe_score > 0 ? 'bg-gradient-to-r from-yellow-400 to-amber-500' : 'bg-zinc-700'}`}
             initial={{ width: 0 }}
-            animate={{ width: `${(vibe_score / 10) * 100}%` }}
+            animate={{ width: vibe_score > 0 ? `${(vibe_score / 10) * 100}%` : '5%' }}
             transition={{ duration: 0.8, delay: index * 0.05 + 0.3 }}
           />
         </div>
