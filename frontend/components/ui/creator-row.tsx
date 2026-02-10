@@ -30,7 +30,7 @@ export function CreatorRow({ creator, index }: CreatorRowProps) {
 
   // Determine if creator is "New Arrival" or "Rising Star"
   const daysOfHistory = trajectory.length
-  const isNewArrival = daysOfHistory < 7
+  const isNewArrival = daysOfHistory < 3
   const isMature = daysOfHistory >= 7
 
   // Format numbers with K/M suffix
