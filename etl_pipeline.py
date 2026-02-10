@@ -361,6 +361,31 @@ class TikHubAPI:
             logger.error(f"❌ Failed to fetch trending keywords: {e}")
             return []
 
+    def fetch_user_videos(self, sec_user_id: str, count: int = 20) -> Optional[List[Dict]]:
+        """Fetch recent videos for a user by sec_user_id"""
+        videos_url = 'https://api.tikhub.io/api/v1/tiktok/app/v3/fetch_user_post_videos'
+        params = {
+            'sec_user_id': sec_user_id,
+            'count': count,
+            'max_cursor': 0
+        }
+
+        try:
+            response = self.session.get(videos_url, params=params, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            
+            if isinstance(data, dict) and data.get('code') == 200:
+                # Extract video list from response
+                aweme_list = data.get('data', {}).get('aweme_list', [])
+                return aweme_list
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"Failed to fetch videos for user: {e}")
+            return None
+        except ValueError:
+            return None
+
 
 def normalize_trends(trend_list: List[str]) -> List[str]:
     """
@@ -647,6 +672,7 @@ class CometDiscoveryEngine:
             'rejected_personality': 0,
             'passed_filters': 0,
             'rejected_comet_criteria': 0,
+            'rejected_one_hit_wonder': 0,
             'saved_to_db': 0
         }
 
@@ -658,6 +684,44 @@ class CometDiscoveryEngine:
             return Config.MIN_FOLLOWERS < follower_count < Config.MAX_FOLLOWERS and play_count > Config.MIN_VIDEO_VIEWS
         except (ValueError, TypeError):
             return False
+
+    def passes_video_consistency_check(self, sec_user_id: str, handle: str) -> bool:
+        """
+        Check if creator has consistent video performance (not a one-hit wonder).
+        
+        Criteria: At least 3 videos with 10k+ views in their last 20 videos.
+        This filters out creators who got lucky with one viral video but have
+        no real audience engagement on their other content.
+        """
+        MIN_HITS_REQUIRED = 3
+        MIN_VIEWS_PER_HIT = 10000
+        
+        try:
+            videos = self.api.fetch_user_videos(sec_user_id, count=20)
+            if not videos:
+                # If we can't fetch videos, give benefit of the doubt
+                logger.warning(f"Could not fetch videos for @{handle}, skipping consistency check")
+                return True
+            
+            # Count videos with 10k+ views
+            hits = 0
+            for video in videos:
+                stats = video.get('statistics', {})
+                play_count = int(stats.get('play_count', 0))
+                if play_count >= MIN_VIEWS_PER_HIT:
+                    hits += 1
+                    if hits >= MIN_HITS_REQUIRED:
+                        return True  # Early exit once we have enough hits
+            
+            if hits < MIN_HITS_REQUIRED:
+                logger.info(f"❌ @{handle} failed consistency check: only {hits}/{MIN_HITS_REQUIRED} videos with 10k+ views")
+                return False
+            
+            return True
+            
+        except Exception as e:
+            logger.warning(f"Error in consistency check for @{handle}: {e}")
+            return True  # Benefit of the doubt on error
 
     def extract_creator_data(self, author: Dict) -> Dict:
         """Extract creator data from API response"""
@@ -785,6 +849,11 @@ class CometDiscoveryEngine:
                     logger.info(f"✅ AI Accepted: @{creator_data['handle']}")
 
             self.filter_stats['passed_filters'] += 1
+
+            # Video consistency check - filter out one-hit wonders
+            if not self.passes_video_consistency_check(user_id, creator_data['handle']):
+                self.filter_stats['rejected_one_hit_wonder'] += 1
+                return False
 
             # Save to database
             cursor.execute("SAVEPOINT before_insert")
@@ -994,6 +1063,7 @@ class CometDiscoveryEngine:
             logger.info(f"     - Pronoun rejected: {self.filter_stats['rejected_layer2']}")
             logger.info(f"     - Personality rejected: {self.filter_stats['rejected_personality']}")
             logger.info(f"     - Comet criteria rejected: {self.filter_stats['rejected_comet_criteria']}")
+            logger.info(f"     - One-hit wonders rejected: {self.filter_stats['rejected_one_hit_wonder']}")
             logger.info(f"     - Saved: {self.filter_stats['saved_to_db']}")
 
         except Exception as e:
