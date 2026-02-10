@@ -395,42 +395,74 @@ def normalize_trends(trend_list: List[str]) -> List[str]:
     - Normalize to lowercase for comparison
     - Remove duplicates and near-duplicates
     - Group variations (e.g., "Bad Bunny" and "Badbunny" → keep first)
+    - Collapse longer phrases into shorter base trends (e.g., "Bad Bunny Meme" → "Bad Bunny")
     - Collapse spaces, punctuation, common suffixes
     
     Returns deduplicated list preserving original casing of first occurrence
     """
     import re
-    seen = {}
-    normalized = []
     
     # Common suffixes to strip for comparison
     suffixes_to_strip = [
         'trend', 'challenge', 'dance', 'song', 'sound', 'audio',
-        'viral', 'tiktok', 'fyp', 'foryou', 'edit', 'version'
+        'viral', 'tiktok', 'fyp', 'foryou', 'edit', 'version',
+        'meme', 'superbowl', 'performance', 'performs', 'speaking'
     ]
     
+    # First pass: collect all trends with their normalized keys
+    trends_with_keys = []
     for trend in trend_list:
-        # Clean up the trend
         clean = trend.strip().lstrip('#')
-        
-        # Create base key: lowercase, alphanumeric only
         key = re.sub(r'[^a-z0-9]', '', clean.lower())
         
-        # Also create a "core" key with common suffixes removed
+        # Skip if empty or too short
+        if not key or len(key) < 3:
+            continue
+        
+        # Create core key with suffixes removed
         core_key = key
         for suffix in suffixes_to_strip:
             if core_key.endswith(suffix):
                 core_key = core_key[:-len(suffix)]
         
-        # Skip if empty
-        if not key or len(key) < 3:
-            continue
-            
-        # Check both full key and core key for duplicates
-        if key not in seen and core_key not in seen:
-            seen[key] = clean
-            seen[core_key] = clean  # Also mark core as seen
-            normalized.append(clean)
+        trends_with_keys.append({
+            'original': clean,
+            'key': key,
+            'core_key': core_key,
+            'length': len(key)
+        })
+    
+    # Sort by key length (shorter = more general = preferred)
+    trends_with_keys.sort(key=lambda x: x['length'])
+    
+    # Second pass: dedupe with substring matching
+    seen_keys = set()
+    seen_cores = set()
+    normalized = []
+    
+    for t in trends_with_keys:
+        key = t['key']
+        core = t['core_key']
+        
+        # Check if this key is a substring of any seen key, or vice versa
+        is_duplicate = False
+        
+        # Check exact matches first
+        if key in seen_keys or core in seen_cores:
+            is_duplicate = True
+        else:
+            # Check if any existing key contains this one (this is more general)
+            # OR if this one contains any existing key (existing is more general)
+            for seen in seen_keys:
+                # If existing trend contains this core, skip this one
+                if core in seen or seen in core:
+                    is_duplicate = True
+                    break
+        
+        if not is_duplicate:
+            seen_keys.add(key)
+            seen_cores.add(core)
+            normalized.append(t['original'])
     
     logger.info(f"📋 Normalized {len(trend_list)} trends → {len(normalized)} unique")
     return normalized
