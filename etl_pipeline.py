@@ -1028,8 +1028,8 @@ class CometDiscoveryEngine:
 
             raw_trends = self.api.get_trending_keywords(limit=100)
             if not raw_trends:
-                logger.error("❌ Failed to fetch trends")
-                return
+                logger.error("❌ Failed to fetch trends — check TikHub API key/credits")
+                sys.exit(1)
 
             # Normalize trends (dedupe variations like "Bad Bunny" vs "badbunny")
             normalized = normalize_trends(raw_trends)
