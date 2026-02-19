@@ -1026,16 +1026,62 @@ class CometDiscoveryEngine:
             logger.info("PHASE 1: DISCOVERY")
             logger.info("=" * 60)
 
+            # === SOURCE 1: TikTok Trending Search Words ===
             raw_trends = self.api.get_trending_keywords(limit=100)
             if not raw_trends:
                 logger.error("❌ Failed to fetch trends — check TikHub API key/credits")
                 sys.exit(1)
 
-            # Normalize trends (dedupe variations like "Bad Bunny" vs "badbunny")
-            normalized = normalize_trends(raw_trends)
+            # === SOURCE 2: Popular Hashtags (TikTok Ads API) ===
+            hashtag_trends = []
+            try:
+                hashtag_url = 'https://api.tikhub.io/api/v1/tiktok/ads/get_hashtag_list'
+                resp = self.api.session.get(hashtag_url, params={'count': '50'}, timeout=30)
+                if resp.status_code == 200:
+                    hdata = resp.json()
+                    items = hdata.get('data', {}).get('list', []) if isinstance(hdata.get('data'), dict) else []
+                    for item in items:
+                        name = item.get('hashtag_name', '') or item.get('name', '')
+                        if name:
+                            hashtag_trends.append(name)
+                    logger.info(f"📌 Source 2 (hashtag list): {len(hashtag_trends)} hashtags")
+            except Exception as e:
+                logger.warning(f"⚠️ Hashtag list fetch failed: {e}")
+
+            # === SOURCE 3: Niche Seed Keywords ===
+            # These target specific creator niches to find breakout creators
+            # that wouldn't appear in generic trending searches
+            niche_seeds = [
+                'day in my life vlog', 'get ready with me', 'cooking hack',
+                'fitness transformation', 'apartment tour', 'thrift haul',
+                'small business check', 'study with me', 'street interview',
+                'outfit of the day ootd', 'skincare routine', 'room makeover',
+            ]
+            # Rotate 3 niches per run (cycles through all 12 over 4 runs)
+            import hashlib
+            day_hash = int(hashlib.md5(str(datetime.now().date()).encode()).hexdigest(), 16)
+            niche_batch = [niche_seeds[i % len(niche_seeds)] for i in range(day_hash % len(niche_seeds), day_hash % len(niche_seeds) + 3)]
+            logger.info(f"🎯 Source 3 (niche seeds): {', '.join(niche_batch)}")
+
+            # === COMBINE & DEDUPE ===
+            all_trends = raw_trends + hashtag_trends + niche_batch
+            normalized = normalize_trends(all_trends)
+
+            # Dedupe against trends we've already processed in last 3 days
+            try:
+                cursor.execute("""
+                    SELECT DISTINCT LOWER(trend_keyword) FROM daily_trends 
+                    WHERE discovered_at >= CURRENT_DATE - INTERVAL '3 days'
+                """)
+                recent_trends = {row[0] for row in cursor.fetchall()}
+                before_dedupe = len(normalized)
+                normalized = [t for t in normalized if t.lower() not in recent_trends]
+                if before_dedupe > len(normalized):
+                    logger.info(f"🔄 Deduped {before_dedupe - len(normalized)} recently-processed trends")
+            except Exception as e:
+                logger.warning(f"⚠️ Dedupe query failed: {e}")
 
             # MINIMAL blacklist - only things that literally cannot have creators
-            # Trust the AI personality filter to handle creator quality
             blacklist = [
                 '2024', '2025', '2026', '2027',  # Years aren't trends
                 'price drop', 'on sale',          # Shopping, not content
@@ -1043,12 +1089,8 @@ class CometDiscoveryEngine:
             filtered = [t for t in normalized if not any(b in t.lower() for b in blacklist)]
             logger.info(f"🚫 Minimal blacklist removed {len(normalized) - len(filtered)} trends")
 
-            # NO AI trend filter - let all trends through
-            # The personality filter will catch bad creators, not trend filter
-            # This gives us more surface area to find rising creators
-            
-            # Process top 20 trends (more coverage)
-            trends = filtered[:20]
+            # Process top 25 trends (more coverage with multi-source)
+            trends = filtered[:25]
             logger.info(f"✅ Processing {len(trends)} trends: {', '.join(trends[:5])}...")
 
             # Store trends
